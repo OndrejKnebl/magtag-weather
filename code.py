@@ -10,6 +10,7 @@ import time
 import json
 from adafruit_display_text import label
 import terminalio
+import adafruit_ntp
 
 lang = "EN"         # CZ / EN
 updateEvery = 180   # seconds
@@ -121,11 +122,38 @@ def displayData(myObj3):
     display.refresh()
 
 
+def myTime(current_time):
+    adjusted_time = time.struct_time((
+        current_time.tm_year,
+        current_time.tm_mon,
+        current_time.tm_mday,
+        current_time.tm_hour - 1 if current_time.tm_hour > 0 else 23,
+        current_time.tm_min,
+        current_time.tm_sec,
+        current_time.tm_wday,
+        current_time.tm_yday,
+        current_time.tm_isdst
+    ))
+    time_str = "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z".format(
+        adjusted_time.tm_year,
+        adjusted_time.tm_mon,
+        adjusted_time.tm_mday,
+        adjusted_time.tm_hour,
+        adjusted_time.tm_min,
+        adjusted_time.tm_sec
+    )
+    return time_str
+
+
 def getWeatherData():
     pool = socketpool.SocketPool(wifi.radio)
+    ntp = adafruit_ntp.NTP(pool, tz_offset=0)
+    afterTime = myTime(ntp.datetime)
+    
     requests = adafruit_requests.Session(pool, ssl.create_default_context())
     headers = {'Authorization':'Bearer ' + secrets["TTN_api"]}
-    response = requests.get(secrets["TTN_Storage_Address"], headers=headers)
+    url = f"{secrets['TTN_Storage_Address']}?after={afterTime}"
+    response = requests.get(url, headers=headers)
     dbResponse = response.text.split("\n")
     response.close()
 
